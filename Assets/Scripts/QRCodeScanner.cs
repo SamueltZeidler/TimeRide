@@ -24,8 +24,13 @@ public class QRCodeScanner : MonoBehaviour
 	void StartCamera()
 	{
 		webcamTexture = new WebCamTexture();
+
 		cameraView.texture = webcamTexture;
+
+		// duplicate the material to avoid modifying the original
+		cameraView.material = new Material(cameraView.material);
 		cameraView.material.mainTexture = webcamTexture;
+
 		webcamTexture.Play();
 	}
 
