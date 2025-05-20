@@ -3,12 +3,24 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
 
 public class Clicker : MonoBehaviour
 {
+	[Header("UI & Systems")]
 	[SerializeField] private GraphicRaycaster uiRaycaster;
 	[SerializeField] private EventSystem eventSystem;
 	[SerializeField] private TextMeshProUGUI counterText;
+
+	[Header("Audio")]
+	[SerializeField] private AudioClip clickSound;
+	[SerializeField] private AudioClip milestoneSound;   // Sound for milestone
+	private AudioSource audioSource;
+
+	[Header("Milestone")]
+	[SerializeField] private int milestoneThreshold = 7; // Trigger value
+	[SerializeField] private GameObject milestoneObject;  // Object to activate
+
 
 	private int clickCount = 0;
 
@@ -19,6 +31,10 @@ public class Clicker : MonoBehaviour
 
 		if (eventSystem == null)
 			eventSystem = FindObjectOfType<EventSystem>();
+
+		audioSource = GetComponent<AudioSource>();
+		if (audioSource == null)
+			audioSource = gameObject.AddComponent<AudioSource>();
 
 		UpdateCounterText();
 	}
@@ -56,6 +72,13 @@ public class Clicker : MonoBehaviour
 				if (graphic != null)
 					graphic.color = Color.green;
 
+				if (clickCount == milestoneThreshold)
+					MilestoneReached();
+				else if (clickSound != null && audioSource != null)
+					audioSource.PlayOneShot(clickSound);
+
+				StartCoroutine(ShakeUI(go.transform));
+
 				UpdateCounterText();
 				break;
 			}
@@ -66,8 +89,45 @@ public class Clicker : MonoBehaviour
 	{
 		if (counterText != null)
 		{
-			counterText.text = "Clicks: " + clickCount;
+			counterText.text = "Kölsch Flaschen: " + clickCount;
 		}
+	}
+
+	// Called when the milestone threshold is reached
+	void MilestoneReached()
+	{
+		if (milestoneSound != null && audioSource != null)
+		{
+			audioSource.PlayOneShot(milestoneSound);
+			UnityEngine.Debug.Log("Milestone reached!");
+		}
+
+		if (milestoneObject != null)
+		{
+			milestoneObject.SetActive(true);
+			UnityEngine.Debug.Log("Milestone object activated.");
+		}
+	}
+
+
+	// UI shake animation by rotating on Z-axis
+	IEnumerator ShakeUI(Transform target)
+	{
+		float duration = 0.3f;
+		float elapsed = 0f;
+		float angle = 10f;
+
+		Quaternion originalRotation = target.rotation;
+
+		while (elapsed < duration)
+		{
+			float z = Mathf.Sin(elapsed * 40f) * angle;
+			target.rotation = originalRotation * Quaternion.Euler(0f, 0f, z);
+			elapsed += Time.deltaTime;
+			yield return null;
+		}
+
+		target.rotation = originalRotation;
 	}
 }
 
