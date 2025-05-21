@@ -14,13 +14,16 @@ public class Clicker : MonoBehaviour
 
 	[Header("Audio")]
 	[SerializeField] private AudioClip clickSound;
-	[SerializeField] private AudioClip milestoneSound;   // Sound for milestone
+	[SerializeField] private AudioClip milestoneSound;
 	private AudioSource audioSource;
 
 	[Header("Milestone")]
-	[SerializeField] private int milestoneThreshold = 7; // Trigger value
-	[SerializeField] private GameObject milestoneObject;  // Object to activate
+	[SerializeField] private int milestoneThreshold = 10;
+	[SerializeField] private GameObject milestoneObject;
 
+	[Header("Orientation Control")]
+	[SerializeField] private GameObject portraitTrigger;
+	[SerializeField] private GameObject landscapeTrigger;
 
 	private int clickCount = 0;
 
@@ -41,6 +44,8 @@ public class Clicker : MonoBehaviour
 
 	void Update()
 	{
+		HandleOrientation();
+
 		Vector2 clickPosition = Vector2.zero;
 
 		if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
@@ -78,7 +83,6 @@ public class Clicker : MonoBehaviour
 					audioSource.PlayOneShot(clickSound);
 
 				StartCoroutine(ShakeUI(go.transform));
-
 				UpdateCounterText();
 				break;
 			}
@@ -89,11 +93,10 @@ public class Clicker : MonoBehaviour
 	{
 		if (counterText != null)
 		{
-			counterText.text = "Kölsch Flaschen: " + clickCount;
+			counterText.text = "KÃ¶lsch Flaschen: " + clickCount;
 		}
 	}
 
-	// Called when the milestone threshold is reached
 	void MilestoneReached()
 	{
 		if (milestoneSound != null && audioSource != null)
@@ -109,8 +112,6 @@ public class Clicker : MonoBehaviour
 		}
 	}
 
-
-	// UI shake animation by rotating on Z-axis
 	IEnumerator ShakeUI(Transform target)
 	{
 		float duration = 0.3f;
@@ -128,6 +129,27 @@ public class Clicker : MonoBehaviour
 		}
 
 		target.rotation = originalRotation;
+	}
+
+	// Automatically switch orientation based on active GameObjects
+	void HandleOrientation()
+	{
+		if (portraitTrigger != null && portraitTrigger.activeInHierarchy)
+		{
+			if (Screen.orientation != ScreenOrientation.Portrait)
+			{
+				Screen.orientation = ScreenOrientation.Portrait;
+				UnityEngine.Debug.Log("Switched to Portrait");
+			}
+		}
+		else if (landscapeTrigger != null && landscapeTrigger.activeInHierarchy)
+		{
+			if (Screen.orientation != ScreenOrientation.LandscapeLeft)
+			{
+				Screen.orientation = ScreenOrientation.LandscapeLeft;
+				UnityEngine.Debug.Log("Switched to Landscape");
+			}
+		}
 	}
 }
 
