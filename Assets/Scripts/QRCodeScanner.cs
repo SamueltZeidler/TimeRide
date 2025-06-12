@@ -1,14 +1,9 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 using ZXing;
 using System.Collections;
 
 public class QRCodeScanner : MonoBehaviour
 {
-	public RawImage cameraView;
-	public TextMeshProUGUI resultText;
-
 	[HideInInspector]
 	public string lastScannedText = "";
 
@@ -24,13 +19,6 @@ public class QRCodeScanner : MonoBehaviour
 	void StartCamera()
 	{
 		webcamTexture = new WebCamTexture();
-
-		cameraView.texture = webcamTexture;
-
-		// duplicate the material to avoid modifying the original
-		cameraView.material = new Material(cameraView.material);
-		cameraView.material.mainTexture = webcamTexture;
-
 		webcamTexture.Play();
 	}
 
@@ -50,14 +38,20 @@ public class QRCodeScanner : MonoBehaviour
 					if (result != null && result.Text != lastScannedText)
 					{
 						lastScannedText = result.Text;
-						Debug.Log("QR-Code gefunden: " + result.Text);
+						UnityEngine.Debug.Log("QR-Code gefunden: " + result.Text);
 
-						resultText.text = $"<link={lastScannedText}><u><color=blue>{lastScannedText}</color></u></link>";
+						string urlToOpen = lastScannedText;
+						if (!urlToOpen.StartsWith("http"))
+						{
+							urlToOpen = "https://" + urlToOpen;
+						}
+
+						UnityEngine.Application.OpenURL(urlToOpen);
 					}
 				}
 				catch (System.Exception ex)
 				{
-					Debug.LogWarning("Scan-Fehler: " + ex.Message);
+					UnityEngine.Debug.LogWarning("Scan-Fehler: " + ex.Message);
 				}
 			}
 
@@ -72,22 +66,4 @@ public class QRCodeScanner : MonoBehaviour
 			webcamTexture.Stop();
 		}
 	}
-
-	// Klick auf Link abfangen
-	public void OnLinkClicked()
-	{
-		if (!string.IsNullOrEmpty(lastScannedText))
-		{
-			string urlToOpen = lastScannedText;
-
-			if (!urlToOpen.StartsWith("http"))
-			{
-				urlToOpen = "https://" + urlToOpen;
-			}
-
-			Debug.Log("Öffne URL: " + urlToOpen);
-			Application.OpenURL(urlToOpen);
-		}
-	}
-
 }
