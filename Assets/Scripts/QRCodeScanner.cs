@@ -12,14 +12,32 @@ public class QRCodeScanner : MonoBehaviour
 
 	void Start()
 	{
+		StartCoroutine(RequestCameraPermissionAndStart());
+	}
+
+	IEnumerator RequestCameraPermissionAndStart()
+	{
+#if UNITY_ANDROID
+        if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Camera))
+        {
+            UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Camera);
+            yield return new WaitForSeconds(1f); // kleine Pause
+        }
+#endif
 		StartCamera();
 		StartCoroutine(ScanQRCode());
 	}
 
 	void StartCamera()
 	{
-		webcamTexture = new WebCamTexture();
+		// Höhere Auflösung für bessere Erkennung
+		webcamTexture = new WebCamTexture(1280, 720);
+		if (WebCamTexture.devices.Length > 0)
+		{
+			webcamTexture.deviceName = WebCamTexture.devices[0].name;
+		}
 		webcamTexture.Play();
+		UnityEngine.Debug.Log("Kamera gestartet mit " + webcamTexture.width + "x" + webcamTexture.height);
 	}
 
 	IEnumerator ScanQRCode()
@@ -34,19 +52,29 @@ public class QRCodeScanner : MonoBehaviour
 					int width = webcamTexture.width;
 					int height = webcamTexture.height;
 
+					UnityEngine.Debug.Log($"Bildgröße: {width}x{height}");
+
 					var result = barcodeReader.Decode(pixels, width, height);
-					if (result != null && result.Text != lastScannedText)
+
+					if (result != null)
 					{
-						lastScannedText = result.Text;
-						UnityEngine.Debug.Log("QR-Code gefunden: " + result.Text);
+						UnityEngine.Debug.Log("Decode erfolgreich: " + result.Text);
 
-						string urlToOpen = lastScannedText;
-						if (!urlToOpen.StartsWith("http"))
+						if (result.Text != lastScannedText)
 						{
-							urlToOpen = "https://" + urlToOpen;
-						}
+							lastScannedText = result.Text;
+							string urlToOpen = lastScannedText;
+							if (!urlToOpen.StartsWith("http"))
+							{
+								urlToOpen = "https://" + urlToOpen;
+							}
 
-						UnityEngine.Application.OpenURL(urlToOpen);
+							StartCoroutine(OpenURLWithDelay(urlToOpen));
+						}
+					}
+					else
+					{
+						UnityEngine.Debug.Log("Kein QR-Code erkannt.");
 					}
 				}
 				catch (System.Exception ex)
@@ -57,6 +85,13 @@ public class QRCodeScanner : MonoBehaviour
 
 			yield return new WaitForSeconds(0.5f);
 		}
+	}
+
+	IEnumerator OpenURLWithDelay(string url)
+	{
+		UnityEngine.Debug.Log("Öffne URL in 0.5 Sekunden: " + url);
+		yield return new WaitForSeconds(0.5f);
+		UnityEngine.Application.OpenURL(url);
 	}
 
 	void OnDestroy()
