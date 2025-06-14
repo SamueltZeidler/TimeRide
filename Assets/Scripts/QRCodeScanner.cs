@@ -30,7 +30,7 @@ public class QRCodeScanner : MonoBehaviour
 
 	void StartCamera()
 	{
-		// Höhere Auflösung für bessere Erkennung
+		// Hï¿½here Auflï¿½sung fï¿½r bessere Erkennung
 		webcamTexture = new WebCamTexture(1280, 720);
 		if (WebCamTexture.devices.Length > 0)
 		{
@@ -52,7 +52,7 @@ public class QRCodeScanner : MonoBehaviour
 					int width = webcamTexture.width;
 					int height = webcamTexture.height;
 
-					UnityEngine.Debug.Log($"Bildgröße: {width}x{height}");
+					UnityEngine.Debug.Log($"Bildgrï¿½ï¿½e: {width}x{height}");
 
 					var result = barcodeReader.Decode(pixels, width, height);
 
@@ -63,13 +63,13 @@ public class QRCodeScanner : MonoBehaviour
 						if (result.Text != lastScannedText)
 						{
 							lastScannedText = result.Text;
-							string urlToOpen = lastScannedText;
-							if (!urlToOpen.StartsWith("http"))
-							{
-								urlToOpen = "https://" + urlToOpen;
-							}
+							//string urlToOpen = lastScannedText;
+							//if (!urlToOpen.StartsWith("http"))
+							//{
+								//urlToOpen = "https://" + urlToOpen;
+							//}
 
-							StartCoroutine(OpenURLWithDelay(urlToOpen));
+							//StartCoroutine(OpenURLWithDelay(urlToOpen));
 						}
 					}
 					else
@@ -89,7 +89,7 @@ public class QRCodeScanner : MonoBehaviour
 
 	IEnumerator OpenURLWithDelay(string url)
 	{
-		UnityEngine.Debug.Log("Öffne URL in 0.5 Sekunden: " + url);
+		UnityEngine.Debug.Log("ï¿½ffne URL in 0.5 Sekunden: " + url);
 		yield return new WaitForSeconds(0.5f);
 		UnityEngine.Application.OpenURL(url);
 	}
