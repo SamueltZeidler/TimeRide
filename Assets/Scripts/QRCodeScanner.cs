@@ -1,18 +1,48 @@
 using UnityEngine;
 using ZXing;
 using System.Collections;
+using System.Collections.Generic;
+
 
 public class QRCodeScanner : MonoBehaviour
 {
 	[HideInInspector]
 	public string lastScannedText = "";
 
+
 	private WebCamTexture webcamTexture;
-	private IBarcodeReader barcodeReader = new BarcodeReader();
+
+	private IBarcodeReader barcodeReader = new BarcodeReader
+	{
+		AutoRotate = false,
+		TryInverted = true,
+		Options = new ZXing.Common.DecodingOptions
+		{
+			PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE },
+			TryHarder = false
+		}
+	};
+
+	public GameObject animatedObject;
+	bool alreadyPlayed = false;
 
 	void Start()
 	{
+		if (animatedObject == null)
+			Debug.LogWarning("🚨 animatedObject ist beim Start NULL!");
+		else
+			Debug.Log("✅ animatedObject gefunden: " + animatedObject.name);
 		StartCoroutine(RequestCameraPermissionAndStart());
+	}
+
+	void Awake()
+	{
+		if (animatedObject == null)
+		{
+			animatedObject = GameObject.Find("TimeRideAnim");
+			if (animatedObject != null)
+				Debug.Log("AnimatedObject per Code gefunden: " + animatedObject.name);
+		}
 	}
 
 	IEnumerator RequestCameraPermissionAndStart()
@@ -21,7 +51,7 @@ public class QRCodeScanner : MonoBehaviour
         if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Camera))
         {
             UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Camera);
-            yield return new WaitForSeconds(1f); // kleine Pause
+            yield return new WaitForSeconds(1f); 
         }
 #endif
 		StartCamera();
@@ -30,7 +60,7 @@ public class QRCodeScanner : MonoBehaviour
 
 	void StartCamera()
 	{
-		// H�here Aufl�sung f�r bessere Erkennung
+
 		webcamTexture = new WebCamTexture(1280, 720);
 		if (WebCamTexture.devices.Length > 0)
 		{
@@ -52,7 +82,7 @@ public class QRCodeScanner : MonoBehaviour
 					int width = webcamTexture.width;
 					int height = webcamTexture.height;
 
-					UnityEngine.Debug.Log($"Bildgr��e: {width}x{height}");
+					//UnityEngine.Debug.Log($"Bildgr��e: {width}x{height}");
 
 					var result = barcodeReader.Decode(pixels, width, height);
 
@@ -60,13 +90,23 @@ public class QRCodeScanner : MonoBehaviour
 					{
 						UnityEngine.Debug.Log("Decode erfolgreich: " + result.Text);
 
-						if (result.Text != lastScannedText)
+						if (result != null && result.BarcodeFormat == BarcodeFormat.QR_CODE)
 						{
-							lastScannedText = result.Text;
+
+							bool isNewCode = result.Text != lastScannedText;
+
+
+							if (isNewCode || !alreadyPlayed)
+							{
+								lastScannedText = result.Text;
+								PlayAnimation();
+								alreadyPlayed = true;
+							}
+
 							//string urlToOpen = lastScannedText;
 							//if (!urlToOpen.StartsWith("http"))
 							//{
-								//urlToOpen = "https://" + urlToOpen;
+							//urlToOpen = "https://" + urlToOpen;
 							//}
 
 							//StartCoroutine(OpenURLWithDelay(urlToOpen));
@@ -74,7 +114,7 @@ public class QRCodeScanner : MonoBehaviour
 					}
 					else
 					{
-						UnityEngine.Debug.Log("Kein QR-Code erkannt.");
+						//UnityEngine.Debug.Log("Kein QR-Code erkannt.");
 					}
 				}
 				catch (System.Exception ex)
@@ -87,18 +127,63 @@ public class QRCodeScanner : MonoBehaviour
 		}
 	}
 
-	IEnumerator OpenURLWithDelay(string url)
+	void PlayAnimation()
 	{
-		UnityEngine.Debug.Log("�ffne URL in 0.5 Sekunden: " + url);
-		yield return new WaitForSeconds(0.5f);
-		UnityEngine.Application.OpenURL(url);
-	}
-
-	void OnDestroy()
-	{
-		if (webcamTexture != null && webcamTexture.isPlaying)
+		if (animatedObject == null)
 		{
-			webcamTexture.Stop();
+			Debug.LogWarning("animatedObject ist null!");
+			return;
 		}
+
+		Animator animator = animatedObject.GetComponent<Animator>();
+		if (animator == null)
+		{
+			Debug.LogWarning("Animator fehlt!");
+			return;
+		}
+
+
+		foreach (var p in animator.parameters)
+			Debug.Log($"Animator-Parameter: {p.name}  ({p.type})");
+
+		animator.SetTrigger("Play");
+		Debug.Log("✅ SetTrigger(\"Play\") ausgeführt");
+		alreadyPlayed = true;
+		StartCoroutine(UnlockAfter(animator));
+
+
 	}
+	IEnumerator UnlockAfter(Animator animator)
+{
+    
+    AnimatorClipInfo[] info = animator.GetCurrentAnimatorClipInfo(0);
+    float clipLength = (info.Length > 0) ? info[0].clip.length : 1f;
+
+    // kleine Reserve, falls TimeScale != 1
+    yield return new WaitForSeconds(clipLength + 0.1f);
+
+    alreadyPlayed   = false;             // Entsperren!
+    lastScannedText = "";                // falls derselbe Code erneut triggern soll
+    Debug.Log("🔓 Scanner entsperrt – bereit für nächsten QR-Code");
+}
+
+
+
+
+
+
+	//IEnumerator OpenURLWithDelay(string url)
+	//{
+	//UnityEngine.Debug.Log("�ffne URL in 0.5 Sekunden: " + url);
+	//yield return new WaitForSeconds(0.5f);
+	//UnityEngine.Application.OpenURL(url);
+	//}
+
+	//void OnDestroy()
+	//{
+	//	if (webcamTexture != null && webcamTexture.isPlaying)
+	//	{
+	//	webcamTexture.Stop();
+	//	}
+	//	}
 }
