@@ -152,20 +152,23 @@ public class QRCodeScanner : MonoBehaviour
 		StartCoroutine(UnlockAfter(animator));
 
 
+
+
+
 	}
 	IEnumerator UnlockAfter(Animator animator)
 {
-    
-    AnimatorClipInfo[] info = animator.GetCurrentAnimatorClipInfo(0);
-    float clipLength = (info.Length > 0) ? info[0].clip.length : 1f;
+    Debug.Log("⏳ UnlockAfter gestartet");
 
-    // kleine Reserve, falls TimeScale != 1
-    yield return new WaitForSeconds(clipLength + 0.1f);
+    const float clipLength = 3.5f;   //  ► Länge deines Clips + Reserve
+    yield return new WaitForSeconds(clipLength);
 
-    alreadyPlayed   = false;             // Entsperren!
-    lastScannedText = "";                // falls derselbe Code erneut triggern soll
-    Debug.Log("🔓 Scanner entsperrt – bereit für nächsten QR-Code");
+    alreadyPlayed   = false;
+    lastScannedText = "";
+    Debug.Log("🔓 Scanner entsperrt (fixed wait)");
+   
 }
+
 
 
 
