@@ -1,48 +1,31 @@
 using UnityEngine;
-using ZXing;
 using System.Collections;
 using System.Collections.Generic;
-
+using ZXing;
+using ZXing.QrCode;
+using Debug = UnityEngine.Debug;
 
 public class QRCodeScanner : MonoBehaviour
 {
-	[HideInInspector]
-	public string lastScannedText = "";
+	[Header("Objekt mit Animator")]
+	public GameObject animatedObject;
 
+	[Header("Animator Bool Parametername")]
+	public string animatorBoolParameter = "check";
 
 	private WebCamTexture webcamTexture;
-
-	private IBarcodeReader barcodeReader = new BarcodeReader
-	{
-		AutoRotate = false,
-		TryInverted = true,
-		Options = new ZXing.Common.DecodingOptions
-		{
-			PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE },
-			TryHarder = false
-		}
-	};
-
-	public GameObject animatedObject;
-	bool alreadyPlayed = false;
+	private string lastScannedText = "";
+	private bool isLocked = false;
 
 	void Start()
 	{
 		if (animatedObject == null)
-			Debug.LogWarning("🚨 animatedObject ist beim Start NULL!");
-		else
-			Debug.Log("✅ animatedObject gefunden: " + animatedObject.name);
-		StartCoroutine(RequestCameraPermissionAndStart());
-	}
-
-	void Awake()
-	{
-		if (animatedObject == null)
 		{
-			animatedObject = GameObject.Find("TimeRideAnim");
-			if (animatedObject != null)
-				Debug.Log("AnimatedObject per Code gefunden: " + animatedObject.name);
+			Debug.LogError("❌ Kein AnimatedObject zugewiesen!");
+			return;
 		}
+
+		StartCoroutine(RequestCameraPermissionAndStart());
 	}
 
 	IEnumerator RequestCameraPermissionAndStart()
@@ -51,142 +34,163 @@ public class QRCodeScanner : MonoBehaviour
         if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Camera))
         {
             UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Camera);
-            yield return new WaitForSeconds(1f); 
+            while (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Camera))
+            {
+                yield return null;
+            }
         }
 #endif
+		StartCoroutine(StartCameraWithDelay());
+	}
+
+	IEnumerator StartCameraWithDelay()
+	{
+		Debug.Log("⏳ Warte 1 Sekunde vor dem Kamera-Start...");
+		yield return new WaitForSeconds(1f);
 		StartCamera();
-		StartCoroutine(ScanQRCode());
 	}
 
 	void StartCamera()
 	{
+		WebCamDevice[] devices = WebCamTexture.devices;
 
-		webcamTexture = new WebCamTexture(1280, 720);
-		if (WebCamTexture.devices.Length > 0)
+		foreach (var device in devices)
 		{
-			webcamTexture.deviceName = WebCamTexture.devices[0].name;
+			if (!device.isFrontFacing)
+			{
+				webcamTexture = new WebCamTexture(device.name, 320, 240);
+				break;
+			}
 		}
-		webcamTexture.Play();
-		UnityEngine.Debug.Log("Kamera gestartet mit " + webcamTexture.width + "x" + webcamTexture.height);
+
+		if (webcamTexture == null && devices.Length > 0)
+		{
+			webcamTexture = new WebCamTexture(devices[0].name, 320, 240);
+		}
+
+		if (webcamTexture != null)
+		{
+			webcamTexture.Play();
+			Debug.Log("📷 Kamera gestartet.");
+			StartCoroutine(WaitForCameraReady());
+		}
+		else
+		{
+			Debug.LogError("❌ Keine Kamera verfügbar.");
+		}
 	}
 
-	IEnumerator ScanQRCode()
+	IEnumerator WaitForCameraReady()
 	{
+		Debug.Log("⏳ Warten auf gültiges Kamerabild ...");
+
+		float timeout = 5f;
+		float timer = 0f;
+
+		while ((webcamTexture.width < 100 || webcamTexture.height < 100) && timer < timeout)
+		{
+			yield return new WaitForSeconds(0.1f);
+			timer += 0.1f;
+		}
+
+		if (webcamTexture.width >= 100)
+		{
+			Debug.Log($"✅ Kamera bereit: {webcamTexture.width}x{webcamTexture.height}");
+			StartCoroutine(ScanLoop());
+		}
+		else
+		{
+			Debug.LogError("❌ Kamera liefert keine gültige Auflösung.");
+		}
+	}
+
+	IEnumerator ScanLoop()
+	{
+		QRCodeReader reader = new QRCodeReader();
+
 		while (true)
 		{
-			if (webcamTexture.width > 100 && webcamTexture.height > 100)
+			yield return new WaitForSeconds(0.5f);
+
+			if (isLocked || webcamTexture == null || !webcamTexture.isPlaying)
+				continue;
+
+			int width = webcamTexture.width;
+			int height = webcamTexture.height;
+
+			if (width < 100 || height < 100)
 			{
-				try
-				{
-					Color32[] pixels = webcamTexture.GetPixels32();
-					int width = webcamTexture.width;
-					int height = webcamTexture.height;
-
-					//UnityEngine.Debug.Log($"Bildgr��e: {width}x{height}");
-
-					var result = barcodeReader.Decode(pixels, width, height);
-
-					if (result != null)
-					{
-						UnityEngine.Debug.Log("Decode erfolgreich: " + result.Text);
-
-						if (result != null && result.BarcodeFormat == BarcodeFormat.QR_CODE)
-						{
-
-							bool isNewCode = result.Text != lastScannedText;
-
-
-							if (isNewCode || !alreadyPlayed)
-							{
-								lastScannedText = result.Text;
-								PlayAnimation();
-								alreadyPlayed = true;
-							}
-
-							//string urlToOpen = lastScannedText;
-							//if (!urlToOpen.StartsWith("http"))
-							//{
-							//urlToOpen = "https://" + urlToOpen;
-							//}
-
-							//StartCoroutine(OpenURLWithDelay(urlToOpen));
-						}
-					}
-					else
-					{
-						//UnityEngine.Debug.Log("Kein QR-Code erkannt.");
-					}
-				}
-				catch (System.Exception ex)
-				{
-					UnityEngine.Debug.LogWarning("Scan-Fehler: " + ex.Message);
-				}
+				Debug.Log("⏳ Kamera noch nicht bereit. Größe: " + width + "x" + height);
+				continue;
 			}
 
-			yield return new WaitForSeconds(0.5f);
+			Color32[] pixels = null;
+			try
+			{
+				pixels = webcamTexture.GetPixels32();
+			}
+			catch (System.Exception ex)
+			{
+				Debug.LogWarning("❌ GetPixels32 fehlgeschlagen: " + ex.Message);
+				continue;
+			}
+
+			if (pixels == null || pixels.Length == 0)
+			{
+				Debug.LogWarning("❌ Leere Pixel-Daten, überspringe Frame");
+				continue;
+			}
+
+			try
+			{
+				var source = new ZXing.Color32LuminanceSource(pixels, width, height);
+				var binarizer = new ZXing.Common.HybridBinarizer(source);
+				var bitmap = new ZXing.BinaryBitmap(binarizer);
+				var result = reader.decode(bitmap);
+
+				if (result != null && result.Text != lastScannedText)
+				{
+					Debug.Log("✅ QR erkannt: " + result.Text);
+					lastScannedText = result.Text;
+					PlayAnimation();
+				}
+				else
+				{
+					Debug.Log("⚠️ Kein QR erkannt in diesem Frame.");
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Debug.LogWarning("❌ QR-Scan fehlgeschlagen: " + ex.Message);
+			}
 		}
 	}
 
 	void PlayAnimation()
 	{
-		if (animatedObject == null)
-		{
-			Debug.LogWarning("animatedObject ist null!");
-			return;
-		}
-
 		Animator animator = animatedObject.GetComponent<Animator>();
-		if (animator == null)
+		if (animator == null || animator.runtimeAnimatorController == null)
 		{
-			Debug.LogWarning("Animator fehlt!");
+			Debug.LogError("❌ Kein gültiger Animator oder Controller!");
 			return;
 		}
 
-
-		foreach (var p in animator.parameters)
-			Debug.Log($"Animator-Parameter: {p.name}  ({p.type})");
-
-		animator.SetTrigger("Play");
-		Debug.Log("✅ SetTrigger(\"Play\") ausgeführt");
-		alreadyPlayed = true;
-		StartCoroutine(UnlockAfter(animator));
-
-
-
-
-
+		animator.SetBool(animatorBoolParameter, true);
+		isLocked = true;
+		StartCoroutine(ResetAfterDelay(animator, 3.5f));
 	}
-	IEnumerator UnlockAfter(Animator animator)
-{
-    Debug.Log("⏳ UnlockAfter gestartet");
 
-    const float clipLength = 3.5f;   //  ► Länge deines Clips + Reserve
-    yield return new WaitForSeconds(clipLength);
+	IEnumerator ResetAfterDelay(Animator animator, float delay)
+	{
+		yield return new WaitForSeconds(delay);
 
-    alreadyPlayed   = false;
-    lastScannedText = "";
-    Debug.Log("🔓 Scanner entsperrt (fixed wait)");
-   
-}
+		if (animator != null && animator.runtimeAnimatorController != null)
+		{
+			animator.SetBool(animatorBoolParameter, false);
+		}
 
-
-
-
-
-
-
-	//IEnumerator OpenURLWithDelay(string url)
-	//{
-	//UnityEngine.Debug.Log("�ffne URL in 0.5 Sekunden: " + url);
-	//yield return new WaitForSeconds(0.5f);
-	//UnityEngine.Application.OpenURL(url);
-	//}
-
-	//void OnDestroy()
-	//{
-	//	if (webcamTexture != null && webcamTexture.isPlaying)
-	//	{
-	//	webcamTexture.Stop();
-	//	}
-	//	}
+		isLocked = false;
+		lastScannedText = "";
+		Debug.Log("🔄 Animation zurückgesetzt, Scanner wieder bereit");
+	}
 }
