@@ -53,6 +53,11 @@ public class QRCodeScanner : MonoBehaviour
 	void StartCamera()
 	{
 		WebCamDevice[] devices = WebCamTexture.devices;
+		Debug.Log("Gefundene Kameras: " + devices.Length);
+		for (int i = 0; i < devices.Length; i++)
+		{
+			Debug.Log($"Kamera[{i}]: {devices[i].name}, FrontFacing: {devices[i].isFrontFacing}");
+		}
 
 		foreach (var device in devices)
 		{
@@ -82,18 +87,33 @@ public class QRCodeScanner : MonoBehaviour
 
 	IEnumerator WaitForCameraReady()
 	{
+		// Fallback, falls keine Kamera gefunden wurde oder Name leer ist
+		if (webcamTexture == null)
+		{
+			webcamTexture = new WebCamTexture(320, 240);
+		}
 		Debug.Log("⏳ Warten auf gültiges Kamerabild ...");
 
-		float timeout = 5f;
+		float timeout = 10f;
 		float timer = 0f;
 
-		while ((webcamTexture.width < 100 || webcamTexture.height < 100) && timer < timeout)
+		while (!webcamTexture.isPlaying && timer < timeout)
 		{
 			yield return new WaitForSeconds(0.1f);
 			timer += 0.1f;
 		}
 
-		if (webcamTexture.width >= 100)
+		// Warte, bis mindestens ein Frame aktualisiert wurde
+		timer = 0f;
+		while (!webcamTexture.didUpdateThisFrame && timer < timeout)
+		{
+			yield return new WaitForSeconds(0.1f);
+			timer += 0.1f;
+		}
+
+		Debug.Log($"Kamera-Status: isPlaying={webcamTexture.isPlaying}, width={webcamTexture.width}, height={webcamTexture.height}");
+
+		if (webcamTexture.isPlaying)
 		{
 			Debug.Log($"✅ Kamera bereit: {webcamTexture.width}x{webcamTexture.height}");
 			StartCoroutine(ScanLoop());
